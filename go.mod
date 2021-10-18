@@ -26,7 +26,6 @@ require (
 	github.com/exoscale/egoscale v0.73.2
 	github.com/ffledgling/pdns-go v0.0.0-20180219074714-524e7daccd99
 	github.com/go-gandi/go-gandi v0.0.0-20200921091836-0d8a64b9cc09
-	github.com/go-logr/logr v1.1.0 // indirect
 	github.com/golang/sync v0.0.0-20180314180146-1d60e4601c6f
 	github.com/google/go-cmp v0.5.6
 	github.com/gophercloud/gophercloud v0.21.0
@@ -58,8 +57,8 @@ require (
 	github.com/ultradns/ultradns-sdk-go v0.0.0-20200616202852-e62052662f60
 	github.com/vinyldns/go-vinyldns v0.0.0-20200211145900-fe8a3d82e556
 	github.com/vultr/govultr/v2 v2.9.0
-	go.etcd.io/etcd/api/v3 v3.5.0
-	go.etcd.io/etcd/client/v3 v3.5.0
+	go.etcd.io/etcd/api/v3 v3.5.1
+	go.etcd.io/etcd/client/v3 v3.5.1
 	go.uber.org/ratelimit v0.2.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97 // indirect
 	golang.org/x/net v0.0.0-20210928044308-7d9f5e0b762b

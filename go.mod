@@ -29,7 +29,7 @@ require (
 	github.com/cloudfoundry-community/go-cfclient v0.0.0-20190201205600-f136f9222381
 	github.com/datawire/ambassador v1.12.4
 	github.com/denverdino/aliyungo v0.0.0-20230411124812-ab98a9173ace
-	github.com/digitalocean/godo v1.158.0
+	github.com/digitalocean/godo v1.159.0
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/exoscale/egoscale v0.102.3
 	github.com/ffledgling/pdns-go v0.0.0-20180219074714-524e7daccd99
@@ -51,7 +51,7 @@ require (
 	github.com/projectcontour/contour v1.32.0
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.64.0
+	github.com/prometheus/common v0.65.0
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.34
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0

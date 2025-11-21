@@ -51,7 +51,7 @@ require (
 	github.com/projectcontour/contour v1.33.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.67.3
+	github.com/prometheus/common v0.67.4
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.35
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.10.1

@@ -21,16 +21,16 @@ import (
 	"testing"
 	"time"
 
-	"sigs.k8s.io/external-dns/internal/testutils"
-
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-	v1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayfake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
+
+	"sigs.k8s.io/external-dns/internal/testutils"
 
 	"sigs.k8s.io/external-dns/endpoint"
 	"sigs.k8s.io/external-dns/source/annotations"
@@ -44,7 +44,7 @@ func TestGatewayUDPRouteSourceEndpoints(t *testing.T) {
 
 	gwClient := gatewayfake.NewSimpleClientset()
 	kubeClient := kubefake.NewClientset()
-	clients := new(MockClientGenerator)
+	clients := new(testutils.MockClientGenerator)
 	clients.On("GatewayClient").Return(gwClient, nil)
 	clients.On("KubeClient").Return(kubeClient, nil)
 

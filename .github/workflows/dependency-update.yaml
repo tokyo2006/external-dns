@@ -8,6 +8,10 @@ on:
     # once a day
     - cron: '0 0 * * *'
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update-versions-with-renovate:
     runs-on: ubuntu-latest

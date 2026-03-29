@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -31,7 +30,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	gateway "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	"sigs.k8s.io/external-dns/pkg/apis/externaldns"
@@ -86,7 +84,9 @@ type Config struct {
 	ServiceTypeFilter              []string
 	GlooNamespaces                 []string
 	SkipperRouteGroupVersion       string
-	RequestTimeout                 time.Duration
+	KubeAPIRequestTimeout          time.Duration
+	KubeAPIQPS                     int
+	KubeAPIBurst                   int
 	DefaultTargets                 []string
 	ForceDefaultTargets            bool
 	OCPRouterName                  string
@@ -156,7 +156,9 @@ func NewSourceConfig(cfg *externaldns.Config, opts ...OverrideConfigOption) (*Co
 		ServiceTypeFilter:              cfg.ServiceTypeFilter,
 		GlooNamespaces:                 cfg.GlooNamespaces,
 		SkipperRouteGroupVersion:       cfg.SkipperRouteGroupVersion,
-		RequestTimeout:                 cfg.RequestTimeout,
+		KubeAPIRequestTimeout:          cfg.KubeAPIRequestTimeout,
+		KubeAPIQPS:                     cfg.KubeAPIQPS,
+		KubeAPIBurst:                   cfg.KubeAPIBurst,
 		DefaultTargets:                 cfg.DefaultTargets,
 		ForceDefaultTargets:            cfg.ForceDefaultTargets,
 		OCPRouterName:                  cfg.OCPRouterName,
@@ -200,8 +202,10 @@ func (cfg *Config) ClientGenerator() ClientGenerator {
 					if cfg.UpdateEvents {
 						return 0
 					}
-					return cfg.RequestTimeout
+					return cfg.KubeAPIRequestTimeout
 				}(),
+				QPS:   cfg.KubeAPIQPS,
+				Burst: cfg.KubeAPIBurst,
 			}
 		}
 	})
@@ -241,8 +245,8 @@ type ClientGenerator interface {
 // Memory Efficiency: Prevents creating multiple instances of expensive client objects
 // that maintain their own connection pools and caches.
 //
-// Configuration: Clients are configured using KubeConfig, APIServerURL, and RequestTimeout
-// which are set during SingletonClientGenerator initialization.
+// Configuration: Clients are configured using KubeConfig, APIServerURL, RequestTimeout,
+// QPS, and Burst which are set during SingletonClientGenerator initialization.
 //
 // TODO: Fix error handling pattern in client methods. Current implementation has a bug where
 // errors are only returned on the first call due to sync.Once behavior. If initialization fails
@@ -269,6 +273,8 @@ type SingletonClientGenerator struct {
 	KubeConfig      string
 	APIServerURL    string
 	RequestTimeout  time.Duration
+	QPS             int
+	Burst           int
 	restConfig      *rest.Config
 	kubeClient      kubernetes.Interface
 	gatewayClient   gateway.Interface
@@ -287,7 +293,12 @@ type SingletonClientGenerator struct {
 func (p *SingletonClientGenerator) KubeClient() (kubernetes.Interface, error) {
 	var err error
 	p.kubeOnce.Do(func() {
-		p.kubeClient, err = kubeclient.NewKubeClient(p.KubeConfig, p.APIServerURL, p.RequestTimeout)
+		var config *rest.Config
+		config, err = p.RESTConfig()
+		if err != nil {
+			return
+		}
+		p.kubeClient, err = kubeclient.NewKubeClient(config)
 	})
 	return p.kubeClient, err
 }
@@ -298,7 +309,7 @@ func (p *SingletonClientGenerator) KubeClient() (kubernetes.Interface, error) {
 func (p *SingletonClientGenerator) RESTConfig() (*rest.Config, error) {
 	var err error
 	p.restConfigOnce.Do(func() {
-		p.restConfig, err = kubeclient.InstrumentedRESTConfig(p.KubeConfig, p.APIServerURL, p.RequestTimeout)
+		p.restConfig, err = kubeclient.InstrumentedRESTConfig(p.KubeConfig, p.APIServerURL, p.RequestTimeout, p.QPS, p.Burst)
 	})
 	return p.restConfig, err
 }
@@ -325,7 +336,12 @@ func (p *SingletonClientGenerator) GatewayClient() (gateway.Interface, error) {
 func (p *SingletonClientGenerator) IstioClient() (istioclient.Interface, error) {
 	var err error
 	p.istioOnce.Do(func() {
-		p.istioClient, err = NewIstioClient(p.KubeConfig, p.APIServerURL)
+		var config *rest.Config
+		config, err = p.RESTConfig()
+		if err != nil {
+			return
+		}
+		p.istioClient, err = NewIstioClient(config)
 	})
 	return p.istioClient, err
 }
@@ -451,7 +467,7 @@ func BuildWithConfig(ctx context.Context, source string, p ClientGenerator, cfg 
 	case types.CRD:
 		return buildCRDSource(ctx, p, cfg)
 	case types.SkipperRouteGroup:
-		return buildSkipperRouteGroupSource(ctx, cfg)
+		return buildSkipperRouteGroupSource(ctx, p, cfg)
 	case types.KongTCPIngress:
 		return buildKongTCPIngressSource(ctx, p, cfg)
 	case types.F5VirtualServer:
@@ -627,11 +643,11 @@ func buildCRDSource(ctx context.Context, p ClientGenerator, cfg *Config) (Source
 // buildSkipperRouteGroupSource creates a Skipper RouteGroup source for exposing route groups as DNS records.
 // Special case: Does not use ClientGenerator pattern, instead manages its own authentication.
 // Retrieves bearer token from REST config for API server authentication.
-func buildSkipperRouteGroupSource(_ context.Context, cfg *Config) (Source, error) {
+func buildSkipperRouteGroupSource(_ context.Context, p ClientGenerator, cfg *Config) (Source, error) {
 	apiServerURL := cfg.APIServerURL
 	tokenPath := ""
 	token := ""
-	restConfig, err := kubeclient.GetRestConfig(cfg.KubeConfig, cfg.APIServerURL)
+	restConfig, err := p.RESTConfig()
 	if err == nil {
 		apiServerURL = restConfig.Host
 		tokenPath = restConfig.BearerTokenFile
@@ -688,26 +704,8 @@ func buildUnstructuredSource(ctx context.Context, p ClientGenerator, cfg *Config
 	return NewUnstructuredFQDNSource(ctx, dynamicClient, kubeClient, cfg)
 }
 
-// NewIstioClient returns a new Istio client object. It uses the configured
-// KubeConfig attribute to connect to the cluster. If KubeConfig isn't provided
-// it defaults to using the recommended default.
-// NB: Istio controls the creation of the underlying Kubernetes client, so we
-// have no ability to tack on transport wrappers (e.g., Prometheus request
-// wrappers) to the client's config at this level. Furthermore, the Istio client
-// constructor does not expose the ability to override the Kubernetes API server endpoint,
-// so the apiServerURL config attribute has no effect.
-func NewIstioClient(kubeConfig string, apiServerURL string) (*istioclient.Clientset, error) {
-	if kubeConfig == "" {
-		if _, err := os.Stat(clientcmd.RecommendedHomeFile); err == nil {
-			kubeConfig = clientcmd.RecommendedHomeFile
-		}
-	}
-
-	restCfg, err := clientcmd.BuildConfigFromFlags(apiServerURL, kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-
+// NewIstioClient returns a new Istio client object from the given REST config.
+func NewIstioClient(restCfg *rest.Config) (*istioclient.Clientset, error) {
 	ic, err := istioclient.NewForConfig(restCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create istio client: %w", err)

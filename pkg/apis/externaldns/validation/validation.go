@@ -63,6 +63,13 @@ func ValidateConfig(cfg *externaldns.Config) error {
 		return errors.New("--annotation-prefix must end with '/'")
 	}
 
+	if cfg.KubeAPIQPS <= 0 {
+		return errors.New("--kube-api-qps must be greater than 0")
+	}
+	if cfg.KubeAPIBurst <= 0 {
+		return errors.New("--kube-api-burst must be greater than 0")
+	}
+
 	return nil
 }
 

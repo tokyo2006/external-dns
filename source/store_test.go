@@ -211,9 +211,9 @@ func TestBuildWithConfig_InvalidSource(t *testing.T) {
 
 func TestConfig_ClientGenerator_Caching(t *testing.T) {
 	cfg := &Config{
-		KubeConfig:     "/path/to/kubeconfig",
-		APIServerURL:   "https://api.example.com",
-		RequestTimeout: 30 * time.Second,
+		KubeConfig:            "/path/to/kubeconfig",
+		APIServerURL:          "https://api.example.com",
+		KubeAPIRequestTimeout: 30 * time.Second,
 	}
 
 	gen1 := cfg.ClientGenerator()
@@ -273,7 +273,7 @@ func TestSingletonClientGenerator_RESTConfig_TimeoutPropagation(t *testing.T) {
 // TestConfig_ClientGenerator_RESTConfig_Integration verifies Config → ClientGenerator → RESTConfig flow
 func TestConfig_ClientGenerator_RESTConfig_Integration(t *testing.T) {
 	t.Run("normal timeout is propagated", func(t *testing.T) {
-		cfg := &Config{RequestTimeout: 45 * time.Second}
+		cfg := &Config{KubeAPIRequestTimeout: 45 * time.Second}
 
 		config, err := cfg.ClientGenerator().RESTConfig()
 		if err == nil {
@@ -283,7 +283,7 @@ func TestConfig_ClientGenerator_RESTConfig_Integration(t *testing.T) {
 	})
 
 	t.Run("UpdateEvents sets timeout to zero", func(t *testing.T) {
-		cfg := &Config{RequestTimeout: 45 * time.Second, UpdateEvents: true}
+		cfg := &Config{KubeAPIRequestTimeout: 45 * time.Second, UpdateEvents: true}
 
 		config, err := cfg.ClientGenerator().RESTConfig()
 		if err == nil {
@@ -392,4 +392,28 @@ func TestNewSourceConfig(t *testing.T) {
 			assert.Equal(t, tt.wantCombining, tmpl.Combining(), "Combining")
 		})
 	}
+}
+
+func TestKubeAPIRateLimitPropagation(t *testing.T) {
+	t.Run("NewSourceConfig propagates QPS and burst", func(t *testing.T) {
+		cfg := &externaldns.Config{
+			KubeAPIQPS:   20,
+			KubeAPIBurst: 40,
+		}
+		got, err := NewSourceConfig(cfg)
+		require.NoError(t, err)
+		assert.Equal(t, 20, got.KubeAPIQPS)
+		assert.Equal(t, 40, got.KubeAPIBurst)
+	})
+
+	t.Run("ClientGenerator wires QPS and burst into SingletonClientGenerator", func(t *testing.T) {
+		cfg := &Config{
+			KubeAPIQPS:   15,
+			KubeAPIBurst: 30,
+		}
+		scg, ok := cfg.ClientGenerator().(*SingletonClientGenerator)
+		require.True(t, ok)
+		assert.Equal(t, 15, scg.QPS)
+		assert.Equal(t, 30, scg.Burst)
+	})
 }

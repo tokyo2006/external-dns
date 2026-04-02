@@ -60,6 +60,11 @@ func ProviderSpecificAnnotations(annotations map[string]string) (endpoint.Provid
 				Name:  fmt.Sprintf("coredns/%s", attr),
 				Value: v,
 			})
+		} else if k == AzureTagsKey {
+			providerSpecificAnnotations = append(providerSpecificAnnotations, endpoint.ProviderSpecificProperty{
+				Name:  "azure/tags",
+				Value: v,
+			})
 		} else if strings.HasPrefix(k, CloudflarePrefix) {
 			// TODO: unlike other providers which normalise to "provider/attr",
 			// Cloudflare retains the full annotation key as the property name

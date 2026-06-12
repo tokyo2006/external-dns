@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.63.3
 	github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.40.6
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.3
-	github.com/aws/smithy-go v1.27.1
+	github.com/aws/smithy-go v1.27.2
 	github.com/bodgit/tsig v1.3.1
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/civo/civogo v0.7.2
@@ -29,7 +29,7 @@ require (
 	github.com/datawire/ambassador v1.12.4
 	github.com/denverdino/aliyungo v0.0.0-20230411124812-ab98a9173ace
 	github.com/dnsimple/dnsimple-go v1.7.0
-	github.com/exoscale/egoscale/v3 v3.1.37
+	github.com/exoscale/egoscale/v3 v3.1.38
 	github.com/ffledgling/pdns-go v0.0.0-20180219074714-524e7daccd99
 	github.com/go-gandi/go-gandi v0.7.0
 	github.com/go-logr/logr v1.4.3
